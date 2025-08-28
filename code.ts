@@ -1,37 +1,258 @@
-// This plugin will open a window to prompt the user to enter a number, and
-// it will then create that many rectangles on the screen.
+// This plugin will load and display Styles and Variables from the Figma file.
 
 // This file holds the main code for plugins. Code in this file has access to
 // the *figma document* via the figma global object.
 // You can access browser APIs in the <script> tag inside "ui.html" which has a
 // full browser environment (See https://www.figma.com/plugin-docs/how-plugins-run).
 
-// This shows the HTML page in "ui.html".
-figma.showUI(__html__);
+// Plugin size - change these values to resize the plugin
+const PLUGIN_WIDTH = 320;
+const PLUGIN_HEIGHT = 400;
+
+// This shows the HTML page in "ui.html" with specified size
+figma.showUI(__html__, {
+  width: PLUGIN_WIDTH,
+  height: PLUGIN_HEIGHT,
+  themeColors: true // Enable dark/light theme support
+});
+
+// Check if we have access to the document
+console.log('Plugin started');
+console.log('Document access:', figma.editorType);
+console.log('Current page:', figma.currentPage.name);
+
+// Function to get all styles from the document
+async function getAllStyles() {
+  console.log('Getting all styles...');
+  
+  try {
+    // Get each style type individually with error handling
+    let textStyles: readonly TextStyle[] = [];
+    let paintStyles: readonly PaintStyle[] = [];
+    let effectStyles: readonly EffectStyle[] = [];
+    let gridStyles: readonly GridStyle[] = [];
+    
+    try {
+      textStyles = await figma.getLocalTextStylesAsync();
+      console.log('Text styles loaded:', textStyles.length);
+    } catch (error) {
+      console.error('Error loading text styles:', error);
+    }
+    
+    try {
+      paintStyles = await figma.getLocalPaintStylesAsync();
+      console.log('Paint styles loaded:', paintStyles.length);
+    } catch (error) {
+      console.error('Error loading paint styles:', error);
+    }
+    
+    try {
+      effectStyles = await figma.getLocalEffectStylesAsync();
+      console.log('Effect styles loaded:', effectStyles.length);
+    } catch (error) {
+      console.error('Error loading effect styles:', error);
+    }
+    
+    try {
+      gridStyles = await figma.getLocalGridStylesAsync();
+      console.log('Grid styles loaded:', gridStyles.length);
+    } catch (error) {
+      console.error('Error loading grid styles:', error);
+    }
+    
+    const styles = {
+      textStyles,
+      paintStyles,
+      effectStyles,
+      gridStyles
+    };
+    
+    console.log('Total styles retrieved:', {
+      textStyles: styles.textStyles.length,
+      paintStyles: styles.paintStyles.length,
+      effectStyles: styles.effectStyles.length,
+      gridStyles: styles.gridStyles.length
+    });
+    
+    // Log some sample data for debugging
+    if (textStyles.length > 0) {
+      console.log('Sample text style:', textStyles[0]);
+    }
+    if (paintStyles.length > 0) {
+      console.log('Sample paint style:', paintStyles[0]);
+    }
+    
+    return styles;
+  } catch (error) {
+    console.error('Error getting styles:', error);
+    
+    // Fallback: try to get styles from current page
+    console.log('Trying fallback method - getting styles from current page...');
+    try {
+      const pageStyles = figma.currentPage.findAll(node => 
+        node.type === 'TEXT' || 
+        node.type === 'RECTANGLE' || 
+        node.type === 'ELLIPSE' ||
+        node.type === 'POLYGON' ||
+        node.type === 'STAR' ||
+        node.type === 'VECTOR' ||
+        node.type === 'LINE' ||
+        node.type === 'FRAME' ||
+        node.type === 'GROUP' ||
+        node.type === 'COMPONENT' ||
+        node.type === 'INSTANCE'
+      );
+      
+      console.log('Found nodes on current page:', pageStyles.length);
+      
+      // Return empty styles for now, but log what we found
+      return {
+        textStyles: [],
+        paintStyles: [],
+        effectStyles: [],
+        gridStyles: []
+      };
+    } catch (fallbackError) {
+      console.error('Fallback method also failed:', fallbackError);
+      throw error;
+    }
+  }
+}
+
+// Function to get all variables from the document
+async function getAllVariables() {
+  console.log('Getting all variables...');
+  
+  try {
+    const variables = await figma.variables.getLocalVariablesAsync();
+    const collections = await figma.variables.getLocalVariableCollectionsAsync();
+    
+    console.log('Collections found:', collections.map(c => ({ id: c.id, name: c.name })));
+    console.log('Variables found:', variables.map(v => ({ 
+      id: v.id, 
+      name: v.name, 
+      collectionId: v.variableCollectionId 
+    })));
+  
+    // Create a map of collection IDs to collection names
+    const collectionMap = new Map();
+    collections.forEach(collection => {
+      collectionMap.set(collection.id, collection.name);
+    });
+    
+    // Add collection information to each variable and filter out unknown collections
+    const variablesWithCollections = variables
+      .map(variable => {
+        const collectionName = collectionMap.get(variable.variableCollectionId);
+        if (!collectionName) {
+          console.log(`Warning: Variable "${variable.name}" has collection ID "${variable.variableCollectionId}" but no matching collection found - skipping`);
+          return null; // Return null for variables with unknown collections
+        }
+        
+        return {
+          id: variable.id,
+          name: variable.name,
+          description: variable.description || '',
+          type: variable.resolvedType,
+          scopes: variable.scopes,
+          collectionName: collectionName
+        };
+      })
+      .filter(variable => variable !== null); // Remove null entries
+    
+    console.log('Variables with collections:', variablesWithCollections.length);
+    return variablesWithCollections;
+  } catch (error) {
+    console.error('Error getting variables:', error);
+    throw error;
+  }
+}
 
 // Calls to "parent.postMessage" from within the HTML page will trigger this
 // callback. The callback will be passed the "pluginMessage" property of the
 // posted message.
-figma.ui.onmessage =  (msg: {type: string, count: number}) => {
-  // One way of distinguishing between different types of messages sent from
-  // your HTML page is to use an object with a "type" property like this.
-  if (msg.type === 'create-shapes') {
-    // This plugin creates rectangles on the screen.
-    const numberOfRectangles = msg.count;
-
-    const nodes: SceneNode[] = [];
-    for (let i = 0; i < numberOfRectangles; i++) {
-      const rect = figma.createRectangle();
-      rect.x = i * 150;
-      rect.fills = [{ type: 'SOLID', color: { r: 1, g: 0.5, b: 0 } }];
-      figma.currentPage.appendChild(rect);
-      nodes.push(rect);
+figma.ui.onmessage = async (msg: { type: string; segment?: string }) => {
+  console.log('Received message from UI:', msg);
+  
+  // Handle segment change requests
+  if (msg.type === 'load-segment') {
+    console.log('Loading segment:', msg.segment);
+    
+            if (msg.segment === 'styles') {
+          try {
+            const styles = await getAllStyles();
+            console.log('Sending styles to UI:', styles);
+            
+            const processedStyles = {
+              textStyles: styles.textStyles.map(style => ({
+                id: style.id,
+                name: style.name,
+                description: style.description || '',
+                type: 'TEXT'
+              })),
+              paintStyles: styles.paintStyles.map(style => ({
+                id: style.id,
+                name: style.name,
+                description: style.description || '',
+                type: 'PAINT'
+              })),
+              effectStyles: styles.effectStyles.map(style => ({
+                id: style.id,
+                name: style.name,
+                description: style.description || '',
+                type: 'EFFECT'
+              })),
+              gridStyles: styles.gridStyles.map(style => ({
+                id: style.id,
+                name: style.name,
+                description: style.description || '',
+                type: 'GRID'
+              }))
+            };
+            
+            console.log('Processed styles data:', {
+              textStyles: processedStyles.textStyles.length,
+              paintStyles: processedStyles.paintStyles.length,
+              effectStyles: processedStyles.effectStyles.length,
+              gridStyles: processedStyles.gridStyles.length
+            });
+            
+            figma.ui.postMessage({
+              type: 'styles-loaded',
+              data: processedStyles
+            });
+      } catch (error) {
+        console.error('Error loading styles:', error);
+        figma.ui.postMessage({
+          type: 'styles-loaded',
+          data: {
+            textStyles: [],
+            paintStyles: [],
+            effectStyles: [],
+            gridStyles: []
+          }
+        });
+      }
+    } else if (msg.segment === 'variables') {
+      try {
+        const variables = await getAllVariables();
+        console.log('Sending variables to UI:', variables);
+        figma.ui.postMessage({
+          type: 'variables-loaded',
+          data: variables
+        });
+      } catch (error) {
+        console.error('Error loading variables:', error);
+        figma.ui.postMessage({
+          type: 'variables-loaded',
+          data: []
+        });
+      }
     }
-    figma.currentPage.selection = nodes;
-    figma.viewport.scrollAndZoomIntoView(nodes);
   }
 
-  // Make sure to close the plugin when you're done. Otherwise the plugin will
-  // keep running, which shows the cancel button at the bottom of the screen.
-  figma.closePlugin();
+  // Handle cancel
+  if (msg.type === 'cancel') {
+    figma.closePlugin();
+  }
 };

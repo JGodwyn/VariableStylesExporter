@@ -1,17 +1,1603 @@
-<h2>Rectangle Creator</h2>
-<p>Count: <input id="count" type="number" value="5"></p>
-<button id="create">Create</button>
-<button id="cancel">Cancel</button>
-<script>
+<!DOCTYPE html>
+<html lang="en">
 
-document.getElementById('create').onclick = () => {
-  const textbox = document.getElementById('count');
-  const count = parseInt(textbox.value, 10);
-  parent.postMessage({ pluginMessage: { type: 'create-shapes', count } }, '*')
-}
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VariableStyles Exporter</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-document.getElementById('cancel').onclick = () => {
-  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*')
-}
+        body {
+            font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #1c1c1e;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            min-height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
+            position: relative;
+        }
 
-</script>
+        /* Main container - now fully responsive */
+        .container {
+            width: 100%;
+            min-height: 100vh;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Header section - responsive */
+        .header {
+            background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+            padding: clamp(24px, 4vw, 30px) clamp(15px, 3vw, 25px);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle,
+                    rgba(255, 255, 255, 0.1) 0%,
+                    transparent 70%);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0px) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(-20px) rotate(180deg);
+            }
+        }
+
+        .header h1 {
+            font-size: clamp(18px, 4vw, 24px);
+            font-weight: 700;
+            color: white;
+            margin-bottom: clamp(6px, 1.5vw, 8px);
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            line-height: 1.2;
+        }
+
+        .header p {
+            font-size: clamp(12px, 2.5vw, 14px);
+            color: rgba(255, 255, 255, 0.9);
+            position: relative;
+            z-index: 1;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        /* Content section - flexible and responsive */
+        .content {
+            padding: clamp(10px, 2vw, 15px) clamp(15px, 3vw, 25px) clamp(20px, 4vw, 30px) clamp(15px, 3vw, 25px);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 0;
+        }
+
+        /* Segmented control */
+        .segmented-control {
+            display: flex;
+            background: rgba(28, 28, 30, 0.05);
+            border: 1px solid rgba(28, 28, 30, 0.1);
+            border-radius: clamp(8px, 2vw, 12px);
+            padding: clamp(4px, 1vw, 6px);
+            margin-bottom: clamp(20px, 4vw, 25px);
+            margin-top: clamp(2px, 2vw, 15px);
+            gap: clamp(4px, 1vw, 6px);
+        }
+
+        .segment {
+            flex: 1;
+            padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+            font-size: clamp(12px, 2.5vw, 14px);
+            font-weight: 500;
+            text-align: center;
+            border-radius: clamp(6px, 1.5vw, 8px);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            color: #636366;
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .segment::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: -1;
+        }
+
+        .segment.active {
+            color: white;
+            box-shadow: 0 2px 4px rgba(28, 28, 30, 0.2);
+        }
+
+        .segment.active::before {
+            opacity: 1;
+        }
+
+        .segment:hover:not(.active) {
+            background: rgba(28, 28, 30, 0.05);
+            color: #1c1c1e;
+        }
+
+        .segment:focus {
+            outline: 2px solid #1c1c1e;
+            outline-offset: 2px;
+        }
+
+        /* Content display area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: clamp(10px, 2vw, 15px) 0;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .content-section h3 {
+            font-size: clamp(14px, 3vw, 16px);
+            font-weight: 600;
+            color: #1c1c1e;
+            margin-bottom: clamp(10px, 2vw, 15px);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .content-section h3:not(:first-child) {
+            margin-top: 40px;
+        }
+
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(2px, 2vw, 12px);
+        }
+
+        .item {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(28, 28, 30, 0.1);
+            border-radius: clamp(6px, 1.5vw, 8px);
+            padding: clamp(10px, 2.5vw, 15px);
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+        }
+
+        .item:hover {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: rgba(28, 28, 30, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .item-name {
+            font-size: clamp(13px, 2.5vw, 14px);
+            font-weight: 500;
+            color: #1c1c1e;
+            margin-bottom: clamp(4px, 1vw, 6px);
+        }
+
+        .item-description {
+            font-size: clamp(11px, 2vw, 12px);
+            color: #636366;
+            line-height: 1.4;
+        }
+
+        .item-type {
+            display: inline-block;
+            font-size: clamp(10px, 2vw, 11px);
+            font-weight: 500;
+            color: #1c1c1e;
+            background: rgba(28, 28, 30, 0.1);
+            padding: clamp(2px, 0.5vw, 4px) clamp(6px, 1.5vw, 8px);
+            border-radius: clamp(4px, 1vw, 6px);
+            margin-top: clamp(4px, 1vw, 6px);
+        }
+
+        /* Group styles */
+        .group {
+            margin-bottom: 0px;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: clamp(8px, 2vw, 12px);
+            padding: clamp(8px, 2vw, 12px);
+            background: rgba(28, 28, 30, 0.05);
+            border: 1px solid rgba(28, 28, 30, 0.1);
+            border-radius: clamp(6px, 1.5vw, 8px);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .group-header:hover {
+            background: rgba(28, 28, 30, 0.08);
+            border-color: rgba(28, 28, 30, 0.15);
+        }
+
+        .group-header.expanded {
+            background: rgba(28, 28, 30, 0.1);
+            border-color: rgba(28, 28, 30, 0.2);
+        }
+
+        .chevron {
+            width: clamp(12px, 2.5vw, 16px);
+            height: clamp(12px, 2.5vw, 16px);
+            transition: transform 0.2s ease;
+            color: #1c1c1e;
+            flex-shrink: 0;
+        }
+
+        .chevron.expanded {
+            transform: rotate(90deg);
+        }
+
+        .group-name {
+            font-size: clamp(13px, 2.5vw, 14px);
+            font-weight: 600;
+            color: #1c1c1e;
+            flex: 1;
+        }
+
+        .group-count {
+            font-size: clamp(11px, 2vw, 12px);
+            color: #636366;
+            background: rgba(28, 28, 30, 0.1);
+            padding: clamp(2px, 0.5vw, 4px) clamp(6px, 1.5vw, 8px);
+            border-radius: clamp(4px, 1vw, 6px);
+        }
+
+        .group-content {
+            display: none;
+            padding-left: 8px;
+        }
+
+        .group-content.expanded {
+            display: block;
+            padding-top: 8px;
+        }
+
+        .nested-group {
+            margin-bottom: clamp(10px, 1vw, 8px);
+        }
+
+        .nested-group .group-header {
+            background: rgba(28, 28, 30, 0.03);
+            border-color: rgba(28, 28, 30, 0.08);
+            font-size: clamp(12px, 2.5vw, 13px);
+        }
+
+        .nested-group .group-content {
+            padding-left: clamp(15px, 3vw, 20px);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: clamp(20px, 4vw, 30px);
+            color: #636366;
+        }
+
+        .empty-state h3 {
+            font-size: clamp(14px, 3vw, 16px);
+            margin-bottom: clamp(8px, 2vw, 12px);
+        }
+
+        .empty-state p {
+            font-size: clamp(12px, 2.5vw, 14px);
+            line-height: 1.4;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: clamp(20px, 4vw, 30px);
+            color: #636366;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: clamp(20px, 4vw, 24px);
+            height: clamp(20px, 4vw, 24px);
+            border: 2px solid rgba(28, 28, 30, 0.1);
+            border-top: 2px solid #1c1c1e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: clamp(10px, 2vw, 15px);
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Button styles - responsive */
+        .button-group {
+            display: flex;
+            gap: clamp(8px, 2vw, 12px);
+            margin-top: clamp(20px, 4vw, 30px);
+            width: 100%;
+        }
+
+        .btn {
+            flex: 1;
+            padding: clamp(12px, 3vw, 16px) clamp(16px, 3.5vw, 24px);
+            font-size: clamp(12px, 2.5vw, 14px);
+            font-weight: 600;
+            border: none;
+            border-radius: clamp(8px, 2vw, 12px);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-height: clamp(40px, 8vw, 48px);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.2),
+                    transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+            color: #3a3a3c;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+            border: 1px solid #d1d1d1;
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #e5e5e5 0%, #d1d1d1 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Responsive breakpoints */
+        @media (max-width: 480px) {
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                min-height: clamp(44px, 10vw, 52px);
+            }
+        }
+
+        @media (max-width: 320px) {
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .header p {
+                font-size: 11px;
+            }
+
+            .item-name {
+                font-size: 12px;
+            }
+
+            .item-description {
+                font-size: 10px;
+            }
+
+            .btn {
+                font-size: 11px;
+                padding: 10px 12px;
+            }
+        }
+
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .header {
+                padding: clamp(10px, 2vw, 15px) clamp(15px, 3vw, 25px);
+            }
+
+            .content {
+                padding: clamp(10px, 2vw, 15px) clamp(15px, 3vw, 25px);
+            }
+
+            .button-group {
+                margin-top: clamp(10px, 2vw, 15px);
+            }
+        }
+
+        /* Additional visual enhancements */
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #1c1c1e, #2c2c2e, #1c1c1e);
+            background-size: 200% 100%;
+            animation: shimmer 2s ease-in-out infinite;
+            z-index: 10;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+
+            100% {
+                background-position: 200% 0;
+            }
+        }
+
+        /* Focus styles for accessibility */
+        .btn:focus,
+        .segment:focus {
+            outline: 2px solid #1c1c1e;
+            outline-offset: 2px;
+        }
+
+        /* Ensure content doesn't overflow on very small screens */
+        @media (max-width: 240px) {
+            .container {
+                min-width: 240px;
+            }
+
+            .header,
+            .content {
+                padding: 10px;
+            }
+
+            .button-group {
+                gap: 5px;
+            }
+        }
+
+        /* High DPI displays */
+        @media (-webkit-min-device-pixel-ratio: 2),
+        (min-resolution: 192dpi) {
+            .container {
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+        }
+
+        /* Search Field Styles */
+        .search-container {
+            position: relative;
+            margin-bottom: clamp(20px, 4vw, 25px);
+            width: 100%;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: clamp(10px, 2vw, 12px) clamp(15px, 3vw, 20px) clamp(10px, 2vw, 12px) clamp(40px, 10vw, 50px);
+            border: 1px solid rgba(28, 28, 30, 0.1);
+            border-radius: clamp(8px, 2vw, 12px);
+            font-size: clamp(13px, 2.5vw, 14px);
+            color: #1c1c1e;
+            background-color: #f5f5f5;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #1c1c1e;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+
+        .search-icon {
+            position: absolute;
+            top: 50%;
+            left: 15px;
+            transform: translateY(-50%);
+            width: clamp(20px, 4vw, 24px);
+            height: clamp(20px, 4vw, 24px);
+            color: #636366;
+        }
+
+        /* Floating download button */
+        .floating-download-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 56px;
+            height: 56px;
+            background: #1c1c1e;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(28, 28, 30, 0.4);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .floating-download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(28, 28, 30, 0.6);
+        }
+
+        .floating-download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(28, 28, 30, 0.4);
+        }
+
+        .floating-download-btn svg {
+            width: 24px;
+            height: 24px;
+            color: white;
+        }
+
+        /* Slide-in export menu */
+        .export-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .export-menu-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .export-menu {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 85%;
+            max-width: 400px;
+            height: 100%;
+            background: white;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+            z-index: 2001;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .export-menu.active {
+            right: 0;
+        }
+
+        .export-menu-header {
+            background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+            padding: 24px 20px;
+            color: white;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .export-menu-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .export-menu-header p {
+            font-size: 14px;
+            opacity: 0.8;
+            font-weight: 400;
+        }
+
+        .export-menu-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s ease;
+        }
+
+        .export-menu-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .export-menu-close svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .export-menu-content {
+            flex: 1;
+            padding: 24px 20px;
+            overflow-y: auto;
+        }
+
+        .export-section {
+            margin-bottom: 32px;
+        }
+
+        .export-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1c1c1e;
+            margin-bottom: 12px;
+        }
+
+        .export-section p {
+            font-size: 14px;
+            color: #636366;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .framework-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            background: white;
+            color: #1c1c1e;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 24px;
+        }
+
+        .framework-select:focus {
+            outline: none;
+            border-color: #1c1c1e;
+            box-shadow: 0 0 0 3px rgba(28, 28, 30, 0.1);
+        }
+
+        .framework-select:hover {
+            border-color: #1c1c1e;
+        }
+
+        .export-btn {
+            width: 100%;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .export-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .export-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .export-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>VariableStyles Exporter</h1>
+            <p>Export your Figma variables and styles</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Segmented Control -->
+            <div class="segmented-control">
+                <button class="segment active" data-segment="styles">Styles</button>
+                <button class="segment" data-segment="variables">Variables</button>
+            </div>
+
+            <!-- Search Field -->
+            <div class="search-container">
+                <input type="text" id="search-input" class="search-input" placeholder="Search styles..." autocomplete="off" />
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+
+            <!-- Content Display Area -->
+            <div class="content-area">
+                <!-- Styles Section -->
+                <div class="content-section active" id="styles-section">
+                    <div class="loading" id="styles-loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading styles...</p>
+                    </div>
+                    <div class="content-section active" id="styles-content" style="display: none">
+                        <h3>Text Styles</h3>
+                        <div class="item-list" id="text-styles-list"></div>
+
+                        <h3>Paint Styles</h3>
+                        <div class="item-list" id="paint-styles-list"></div>
+
+                        <h3>Effect Styles</h3>
+                        <div class="item-list" id="effect-styles-list"></div>
+
+                        <h3>Grid Styles</h3>
+                        <div class="item-list" id="grid-styles-list"></div>
+                    </div>
+                </div>
+
+                <!-- Variables Section -->
+                <div class="content-section" id="variables-section">
+                    <div class="loading" id="variables-loading" style="display: none">
+                        <div class="loading-spinner"></div>
+                        <p>Loading variables...</p>
+                    </div>
+                    <div class="content-section" id="variables-content" style="display: none">
+                        <h3>Variables</h3>
+                        <div class="item-list" id="variables-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced JavaScript with styles/variables functionality
+        const segments = document.querySelectorAll('.segment');
+        console.log('Found segments:', segments.length);
+
+        // Content sections
+        const stylesSection = document.getElementById('styles-section');
+        const variablesSection = document.getElementById('variables-section');
+        const stylesLoading = document.getElementById('styles-loading');
+        const variablesLoading = document.getElementById('variables-loading');
+        const stylesContent = document.getElementById('styles-content');
+        const variablesContent = document.getElementById('variables-content');
+
+        // Search input
+        const searchInput = document.getElementById('search-input');
+        const searchIcon = document.querySelector('.search-icon');
+
+        console.log('DOM elements found:', {
+            segments: segments.length,
+            stylesSection: !!stylesSection,
+            variablesSection: !!variablesSection,
+            stylesLoading: !!stylesLoading,
+            variablesLoading: !!variablesLoading,
+            stylesContent: !!stylesContent,
+            variablesContent: !!variablesContent,
+            searchInput: !!searchInput,
+            searchIcon: !!searchIcon,
+        });
+
+        // Store current data for filtering
+        let currentStylesData = null;
+        let currentVariablesData = null;
+        let currentSegment = 'styles';
+
+        // Responsive resize handler
+        function handleResize() {
+            const container = document.querySelector('.container');
+            const windowHeight = window.innerHeight;
+            const windowWidth = window.innerWidth;
+
+            // Adjust container height for very small windows
+            if (windowHeight < 300) {
+                container.style.minHeight = '300px';
+            } else {
+                container.style.minHeight = '100vh';
+            }
+
+            // Adjust for very narrow windows
+            if (windowWidth < 240) {
+                container.style.minWidth = '240px';
+            }
+
+            // Log resize for debugging (remove in production)
+            console.log(`Window resized to: ${windowWidth}x${windowHeight}`);
+        }
+
+        // Listen for window resize events
+        window.addEventListener('resize', handleResize);
+
+        // Initial resize call
+        handleResize();
+
+        // Segmented control functionality
+        segments.forEach((segment) => {
+            segment.addEventListener('click', () => {
+                console.log('Segment clicked:', segment.dataset.segment);
+                const selectedSegment = segment.dataset.segment;
+
+                // Update active state
+                segments.forEach((s) => s.classList.remove('active'));
+                segment.classList.add('active');
+
+                // Update current segment for search
+                currentSegment = selectedSegment;
+
+                // Update search placeholder
+                searchInput.placeholder = `Search ${selectedSegment}...`;
+
+                // Clear search input
+                searchInput.value = '';
+
+                // Show/hide content sections
+                if (selectedSegment === 'styles') {
+                    console.log('Switching to styles');
+                    stylesSection.classList.add('active');
+                    variablesSection.classList.remove('active');
+                    loadStyles();
+                } else if (selectedSegment === 'variables') {
+                    console.log('Switching to variables');
+                    variablesSection.classList.add('active');
+                    stylesSection.classList.remove('active');
+                    loadVariables();
+                }
+            });
+        });
+
+        // Search input event listener
+        searchInput.addEventListener('input', performSearch);
+
+        // Perform search function
+        function performSearch() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+
+            if (currentSegment === 'styles' && currentStylesData) {
+                displayStyles(currentStylesData, searchTerm);
+            } else if (currentSegment === 'variables' && currentVariablesData) {
+                displayVariables(currentVariablesData, searchTerm);
+            }
+        }
+
+        // Filter styles based on search term
+        function filterStyles(data, searchTerm) {
+            if (!searchTerm) return data;
+
+            const filtered = {
+                textStyles: (data.textStyles || []).filter(
+                    (style) =>
+                    style.name.toLowerCase().includes(searchTerm) ||
+                    (style.description &&
+                        style.description.toLowerCase().includes(searchTerm)),
+                ),
+                paintStyles: (data.paintStyles || []).filter(
+                    (style) =>
+                    style.name.toLowerCase().includes(searchTerm) ||
+                    (style.description &&
+                        style.description.toLowerCase().includes(searchTerm)),
+                ),
+                effectStyles: (data.effectStyles || []).filter(
+                    (style) =>
+                    style.name.toLowerCase().includes(searchTerm) ||
+                    (style.description &&
+                        style.description.toLowerCase().includes(searchTerm)),
+                ),
+                gridStyles: (data.gridStyles || []).filter(
+                    (style) =>
+                    style.name.toLowerCase().includes(searchTerm) ||
+                    (style.description &&
+                        style.description.toLowerCase().includes(searchTerm)),
+                ),
+            };
+
+            return filtered;
+        }
+
+        // Filter variables based on search term
+        function filterVariables(data, searchTerm) {
+            if (!searchTerm) return data || [];
+
+            return (data || []).filter(
+                (variable) =>
+                variable.name.toLowerCase().includes(searchTerm) ||
+                variable.collectionName.toLowerCase().includes(searchTerm) ||
+                (variable.description &&
+                    variable.description.toLowerCase().includes(searchTerm)),
+            );
+        }
+
+        // Load styles from Figma
+        function loadStyles() {
+            console.log('Loading styles...');
+            stylesLoading.style.display = 'block';
+            stylesContent.style.display = 'none';
+
+            // Add timeout to prevent infinite loading
+            const timeout = setTimeout(() => {
+                console.error('Styles loading timeout - showing empty state');
+                stylesLoading.style.display = 'none';
+                stylesContent.style.display = 'block';
+                displayStyles({
+                    textStyles: [],
+                    paintStyles: [],
+                    effectStyles: [],
+                    gridStyles: [],
+                });
+            }, 10000); // 10 second timeout
+
+            parent.postMessage({
+                    pluginMessage: {
+                        type: 'load-segment',
+                        segment: 'styles',
+                    },
+                },
+                '*',
+            );
+
+            // Store timeout reference to clear if successful
+            window.stylesLoadingTimeout = timeout;
+        }
+
+        // Load variables from Figma
+        function loadVariables() {
+            console.log('Loading variables...');
+            variablesLoading.style.display = 'block';
+            variablesContent.style.display = 'none';
+
+            // Add timeout to prevent infinite loading
+            const timeout = setTimeout(() => {
+                console.error('Variables loading timeout - showing empty state');
+                variablesLoading.style.display = 'none';
+                variablesContent.style.display = 'block';
+                displayVariables([]);
+            }, 10000); // 10 second timeout
+
+            parent.postMessage({
+                    pluginMessage: {
+                        type: 'load-segment',
+                        segment: 'variables',
+                    },
+                },
+                '*',
+            );
+
+            // Store timeout reference to clear if successful
+            window.variablesLoadingTimeout = timeout;
+        }
+
+        // Handle messages from the plugin
+        window.addEventListener('message', (event) => {
+            const message = event.data.pluginMessage;
+
+            console.log('Received message from plugin:', message);
+
+            if (message.type === 'styles-loaded') {
+                console.log('Styles loaded:', message.data);
+                // Clear timeout if it exists
+                if (window.stylesLoadingTimeout) {
+                    clearTimeout(window.stylesLoadingTimeout);
+                    window.stylesLoadingTimeout = null;
+                }
+                currentStylesData = message.data;
+                displayStyles(message.data);
+            } else if (message.type === 'variables-loaded') {
+                console.log('Variables loaded:', message.data);
+                // Clear timeout if it exists
+                if (window.variablesLoadingTimeout) {
+                    clearTimeout(window.variablesLoadingTimeout);
+                    window.variablesLoadingTimeout = null;
+                }
+                currentVariablesData = message.data;
+                displayVariables(message.data);
+            } else {
+                console.log('Unknown message type:', message.type);
+            }
+        });
+
+        // Group styles by hierarchy
+        function groupStylesByHierarchy(styles) {
+            const groups = {};
+            const groupNameMap = new Map(); // Map to track case-insensitive group names
+
+            styles.forEach((style) => {
+                const parts = style.name.split('/');
+                // Normalize group name by trimming whitespace and removing any invisible characters
+                const normalizedGroupName = parts[0]
+                    .trim()
+                    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                    .replace(/\s+/g, ' ');
+
+                // Skip empty group names
+                if (!normalizedGroupName) {
+                    console.warn('Skipping style with empty group name:', style.name);
+                    return;
+                }
+
+                // Use case-insensitive comparison for grouping
+                const groupKey = normalizedGroupName.toLowerCase();
+                let groupName = normalizedGroupName;
+
+                // If we've seen this group before (case-insensitive), use the first occurrence's case
+                if (groupNameMap.has(groupKey)) {
+                    groupName = groupNameMap.get(groupKey);
+                } else {
+                    groupNameMap.set(groupKey, normalizedGroupName);
+                }
+
+                if (!groups[groupName]) {
+                    groups[groupName] = {
+                        name: groupName,
+                        styles: [],
+                        subgroups: {},
+                    };
+                }
+
+                if (parts.length === 1) {
+                    // Top level style
+                    groups[groupName].styles.push(style);
+                } else {
+                    // Nested style
+                    const subgroupName = parts.slice(1, -1).join('/');
+                    const styleName = parts[parts.length - 1];
+
+                    if (subgroupName) {
+                        if (!groups[groupName].subgroups[subgroupName]) {
+                            groups[groupName].subgroups[subgroupName] = {
+                                name: subgroupName,
+                                styles: [],
+                                subgroups: {},
+                            };
+                        }
+                        groups[groupName].subgroups[subgroupName].styles.push({
+                            ...style,
+                            displayName: styleName,
+                        });
+                    } else {
+                        groups[groupName].styles.push({
+                            ...style,
+                            displayName: styleName,
+                        });
+                    }
+                }
+            });
+
+            return groups;
+        }
+
+        // Render hierarchical groups
+        function renderGroup(group, level = 0) {
+            const isNested = level > 0;
+            const groupClass = isNested ? 'nested-group' : 'group';
+
+            let html = `<div class="${groupClass}">`;
+
+            // Group header
+            const totalItems =
+                group.styles.length +
+                Object.values(group.subgroups).reduce(
+                    (sum, sg) => sum + sg.styles.length,
+                    0,
+                );
+            html += `
+        <div class="group-header" onclick="toggleGroup(this)">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="group-name">${group.name}</span>
+          <span class="group-count">${totalItems}</span>
+        </div>
+      `;
+
+            // Group content
+            html += '<div class="group-content">';
+
+            // Direct styles in this group
+            if (group.styles.length > 0) {
+                group.styles.forEach((style) => {
+                    html += `
+            <div class="item">
+              <div class="item-name">${style.displayName || style.name}</div>
+              ${
+                style.description
+                  ? `<div class="item-description">${style.description}</div>`
+                  : ''
+              }
+              <div class="item-type">${style.type}</div>
+            </div>
+          `;
+                });
+            }
+
+            // Subgroups
+            Object.values(group.subgroups).forEach((subgroup) => {
+                html += renderGroup(subgroup, level + 1);
+            });
+
+            html += '</div></div>';
+            return html;
+        }
+
+        // Toggle group expansion
+        function toggleGroup(header) {
+            const content = header.nextElementSibling;
+            const chevron = header.querySelector('.chevron');
+
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                header.classList.remove('expanded');
+                chevron.classList.remove('expanded');
+            } else {
+                content.classList.add('expanded');
+                header.classList.add('expanded');
+                chevron.classList.add('expanded');
+            }
+        }
+
+        // Display styles in the UI
+        function displayStyles(data, searchTerm = '') {
+            console.log('Displaying styles with data:', data);
+            stylesLoading.style.display = 'none';
+            stylesContent.style.display = 'block';
+
+            // Ensure data has the expected structure
+            if (!data || typeof data !== 'object') {
+                console.error('Invalid styles data:', data);
+                return;
+            }
+
+            const filteredData = filterStyles(data, searchTerm);
+
+            console.log('Filtered data:', {
+                textStyles: (filteredData.textStyles && filteredData.textStyles.length) || 0,
+                paintStyles: (filteredData.paintStyles && filteredData.paintStyles.length) || 0,
+                effectStyles: (filteredData.effectStyles && filteredData.effectStyles.length) ||
+                    0,
+                gridStyles: (filteredData.gridStyles && filteredData.gridStyles.length) || 0,
+            });
+
+            // Group text styles
+            const textStylesGroups = groupStylesByHierarchy(
+                filteredData.textStyles || [],
+            );
+
+            console.log('Text styles groups:', Object.keys(textStylesGroups));
+            const textStylesList = document.getElementById('text-styles-list');
+            const textStylesContainer = textStylesList.parentElement;
+
+            if (Object.keys(textStylesGroups).length > 0) {
+                textStylesList.innerHTML = Object.values(textStylesGroups)
+                    .map((group) => renderGroup(group))
+                    .join('');
+                textStylesContainer.style.display = 'block';
+            } else {
+                textStylesList.innerHTML =
+                    '<div class="empty-state"><p>No text styles found</p></div>';
+                textStylesContainer.style.display = 'block';
+            }
+
+            // Group paint styles
+            const paintStylesGroups = groupStylesByHierarchy(
+                filteredData.paintStyles || [],
+            );
+            console.log('Paint styles groups:', Object.keys(paintStylesGroups));
+            const paintStylesList = document.getElementById('paint-styles-list');
+            const paintStylesContainer = paintStylesList.parentElement;
+
+            if (Object.keys(paintStylesGroups).length > 0) {
+                paintStylesList.innerHTML = Object.values(paintStylesGroups)
+                    .map((group) => renderGroup(group))
+                    .join('');
+                paintStylesContainer.style.display = 'block';
+            } else {
+                paintStylesList.innerHTML =
+                    '<div class="empty-state"><p>No paint styles found</p></div>';
+                paintStylesContainer.style.display = 'block';
+            }
+
+            // Group effect styles
+            const effectStylesGroups = groupStylesByHierarchy(
+                filteredData.effectStyles || [],
+            );
+            console.log('Effect styles groups:', Object.keys(effectStylesGroups));
+            const effectStylesList = document.getElementById('effect-styles-list');
+            const effectStylesContainer = effectStylesList.parentElement;
+
+            if (Object.keys(effectStylesGroups).length > 0) {
+                effectStylesList.innerHTML = Object.values(effectStylesGroups)
+                    .map((group) => renderGroup(group))
+                    .join('');
+                effectStylesContainer.style.display = 'block';
+            } else {
+                effectStylesList.innerHTML =
+                    '<div class="empty-state"><p>No effect styles found</p></div>';
+                effectStylesContainer.style.display = 'block';
+            }
+
+            // Group grid styles
+            const gridStylesGroups = groupStylesByHierarchy(
+                filteredData.gridStyles || [],
+            );
+            console.log('Grid styles groups:', Object.keys(gridStylesGroups));
+            const gridStylesList = document.getElementById('grid-styles-list');
+            const gridStylesContainer = gridStylesList.parentElement;
+
+            if (Object.keys(gridStylesGroups).length > 0) {
+                gridStylesList.innerHTML = Object.values(gridStylesGroups)
+                    .map((group) => renderGroup(group))
+                    .join('');
+                gridStylesContainer.style.display = 'block';
+            } else {
+                gridStylesList.innerHTML =
+                    '<div class="empty-state"><p>No grid styles found</p></div>';
+                gridStylesContainer.style.display = 'block';
+            }
+        }
+
+        // Group variables by collections
+        function groupVariablesByCollections(variables) {
+            const groups = {};
+
+            variables.forEach((variable) => {
+                const collectionName =
+                    variable.collectionName || 'Unknown Collection';
+
+                if (!groups[collectionName]) {
+                    groups[collectionName] = {
+                        name: collectionName,
+                        variables: [],
+                    };
+                }
+
+                groups[collectionName].variables.push(variable);
+            });
+
+            return groups;
+        }
+
+        // Render variable groups
+        function renderVariableGroup(group) {
+            let html = `<div class="group">`;
+
+            // Group header
+            html += `
+        <div class="group-header" onclick="toggleGroup(this)">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="group-name">${group.name}</span>
+          <span class="group-count">${group.variables.length}</span>
+        </div>
+      `;
+
+            // Group content
+            html += '<div class="group-content">';
+
+            // Variables in this collection
+            group.variables.forEach((variable) => {
+                html += `
+          <div class="item">
+            <div class="item-name">${variable.name}</div>
+            ${
+              variable.description
+                ? `<div class="item-description">${variable.description}</div>`
+                : ''
+            }
+            <div class="item-type">${variable.type}</div>
+          </div>
+        `;
+            });
+
+            html += '</div></div>';
+            return html;
+        }
+
+        // Display variables in the UI
+        function displayVariables(data, searchTerm = '') {
+            console.log('Displaying variables with data:', data);
+            variablesLoading.style.display = 'none';
+            variablesContent.style.display = 'block';
+
+            // Ensure data is an array
+            if (!Array.isArray(data)) {
+                console.error('Invalid variables data:', data);
+                return;
+            }
+
+            const filteredData = filterVariables(data, searchTerm);
+
+            // Group variables by collections
+            const variableGroups = groupVariablesByCollections(filteredData);
+            const variablesList = document.getElementById('variables-list');
+            variablesList.innerHTML =
+                Object.keys(variableGroups).length > 0 ?
+                Object.values(variableGroups)
+                .map((group) => renderVariableGroup(group))
+                .join('') :
+                '<div class="empty-state"><p>No variables found</p></div>';
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                parent.postMessage({
+                        pluginMessage: {
+                            type: 'cancel',
+                        },
+                    },
+                    '*',
+                );
+            }
+        });
+
+        // Prevent text selection on buttons for better UX
+        segments.forEach((btn) => {
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+            });
+        });
+
+        // Load styles on initial load
+        console.log('Initial load starting...');
+        loadStyles();
+    </script>
+
+    <script>
+        // Export menu functionality - placed after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadBtn = document.getElementById('download-btn');
+            const exportMenuOverlay = document.getElementById(
+                'export-menu-overlay',
+            );
+            const exportMenu = document.getElementById('export-menu');
+            const exportMenuClose = document.getElementById('export-menu-close');
+            const exportMenuTitle = document.getElementById('export-menu-title');
+            const exportMenuSubtitle = document.getElementById(
+                'export-menu-subtitle',
+            );
+            const exportBtn = document.getElementById('export-btn');
+
+            // Get current active section
+            function getCurrentSection() {
+                const activeSegment = document.querySelector('.segment.active');
+                return activeSegment ?
+                    activeSegment.textContent.toLowerCase() :
+                    'styles';
+            }
+
+            // Open export menu
+            function openExportMenu() {
+                const currentSection = getCurrentSection();
+                exportMenuTitle.textContent = `Export ${
+            currentSection.charAt(0).toUpperCase() + currentSection.slice(1)
+          }`;
+                exportMenuSubtitle.textContent = `Choose your preferred framework for ${currentSection}`;
+
+                exportMenuOverlay.classList.add('active');
+                exportMenu.classList.add('active');
+
+                // Prevent body scroll
+                document.body.style.overflow = 'hidden';
+            }
+
+            // Close export menu
+            function closeExportMenu() {
+                exportMenuOverlay.classList.remove('active');
+                exportMenu.classList.remove('active');
+
+                // Restore body scroll
+                document.body.style.overflow = '';
+            }
+
+            // Event listeners
+            downloadBtn.addEventListener('click', openExportMenu);
+            exportMenuClose.addEventListener('click', closeExportMenu);
+            exportMenuOverlay.addEventListener('click', (e) => {
+                if (e.target === exportMenuOverlay) {
+                    closeExportMenu();
+                }
+            });
+
+            // Export button click (currently does nothing as requested)
+            exportBtn.addEventListener('click', () => {
+                const selectedFramework =
+                    document.getElementById('framework-select').value;
+                const includeColors =
+                    document.getElementById('include-colors').checked;
+                const includeTypography =
+                    document.getElementById('include-typography').checked;
+                const includeSpacing =
+                    document.getElementById('include-spacing').checked;
+                const includeEffects =
+                    document.getElementById('include-effects').checked;
+
+                console.log('Export clicked with:', {
+                    framework: selectedFramework,
+                    includeColors,
+                    includeTypography,
+                    includeSpacing,
+                    includeEffects,
+                });
+
+                // TODO: Implement actual export functionality
+                // For now, just close the menu
+                closeExportMenu();
+            });
+
+            // Close menu on escape key
+            document.addEventListener('keydown', (e) => {
+                if (
+                    e.key === 'Escape' &&
+                    exportMenuOverlay.classList.contains('active')
+                ) {
+                    closeExportMenu();
+                }
+            });
+        });
+    </script>
+
+    <!-- Floating Download Button -->
+    <button class="floating-download-btn" id="download-btn" title="Download">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+    </button>
+
+    <!-- Export Menu Overlay -->
+    <div class="export-menu-overlay" id="export-menu-overlay">
+        <div class="export-menu" id="export-menu">
+            <div class="export-menu-header">
+                <h2 id="export-menu-title">Export Styles</h2>
+                <p id="export-menu-subtitle">Choose your preferred framework</p>
+                <button class="export-menu-close" id="export-menu-close">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="export-menu-content">
+                <div class="export-section">
+                    <h3>Framework</h3>
+                    <p>
+                        Select the framework you want to export your design tokens to:
+                    </p>
+
+                    <select class="framework-select" id="framework-select">
+                        <option value="shadcn">Shadcn/ui</option>
+                        <option value="tailwind">Tailwind CSS</option>
+                        <option value="css-variables">CSS Variables</option>
+                        <option value="scss">SCSS Variables</option>
+                        <option value="styled-components">Styled Components</option>
+                        <option value="emotion">Emotion</option>
+                        <option value="chakra-ui">Chakra UI</option>
+                        <option value="material-ui">Material UI</option>
+                        <option value="ant-design">Ant Design</option>
+                        <option value="bootstrap">Bootstrap</option>
+                    </select>
+                </div>
+
+                <div class="export-section">
+                    <h3>Export Options</h3>
+                    <p>Configure how your design tokens will be exported:</p>
+
+                    <div style="margin-bottom: 16px">
+                        <label style="
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 8px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">
+                            <input type="checkbox" id="include-colors" checked style="margin-right: 8px" />
+                            Include Colors
+                        </label>
+                        <label style="
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 8px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">
+                            <input type="checkbox" id="include-typography" checked style="margin-right: 8px" />
+                            Include Typography
+                        </label>
+                        <label style="
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 8px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">
+                            <input type="checkbox" id="include-spacing" checked style="margin-right: 8px" />
+                            Include Spacing
+                        </label>
+                        <label style="
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 8px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">
+                            <input type="checkbox" id="include-effects" checked style="margin-right: 8px" />
+                            Include Effects
+                        </label>
+                    </div>
+                </div>
+
+                <button class="export-btn" id="export-btn">
+                    Export Design Tokens
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
