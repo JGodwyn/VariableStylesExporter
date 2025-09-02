@@ -149,13 +149,27 @@ async function getAllVariables() {
           return null; // Return null for variables with unknown collections
         }
         
+        // Try to get the variable value by accessing the collection's modes
+        let variableValue = null;
+        try {
+          const collection = collections.find(c => c.id === variable.variableCollectionId);
+          if (collection && collection.modes.length > 0) {
+            // Get the value from the first mode (usually the default mode)
+            const modeId = collection.modes[0].modeId;
+            variableValue = variable.valuesByMode[modeId];
+          }
+        } catch (error) {
+          console.log(`Warning: Could not get value for variable "${variable.name}":`, error);
+        }
+        
         return {
           id: variable.id,
           name: variable.name,
           description: variable.description || '',
           type: variable.resolvedType,
           scopes: variable.scopes,
-          collectionName: collectionName
+          collectionName: collectionName,
+          value: variableValue
         };
       })
       .filter(variable => variable !== null); // Remove null entries
@@ -188,25 +202,36 @@ figma.ui.onmessage = async (msg: { type: string; segment?: string }) => {
                 id: style.id,
                 name: style.name,
                 description: style.description || '',
-                type: 'TEXT'
+                type: 'TEXT',
+                fontSize: style.fontSize,
+                fontName: style.fontName,
+                letterSpacing: style.letterSpacing,
+                lineHeight: style.lineHeight,
+                paragraphIndent: style.paragraphIndent,
+                paragraphSpacing: style.paragraphSpacing,
+                textCase: style.textCase,
+                textDecoration: style.textDecoration
               })),
               paintStyles: styles.paintStyles.map(style => ({
                 id: style.id,
                 name: style.name,
                 description: style.description || '',
-                type: 'PAINT'
+                type: 'PAINT',
+                paints: style.paints
               })),
               effectStyles: styles.effectStyles.map(style => ({
                 id: style.id,
                 name: style.name,
                 description: style.description || '',
-                type: 'EFFECT'
+                type: 'EFFECT',
+                effects: style.effects
               })),
               gridStyles: styles.gridStyles.map(style => ({
                 id: style.id,
                 name: style.name,
                 description: style.description || '',
-                type: 'GRID'
+                type: 'GRID',
+                layoutGrids: style.layoutGrids
               }))
             };
             
