@@ -1630,12 +1630,121 @@
           const processed = {};
 
           textStyles.forEach((style) => {
+            console.log(
+              'Processing text style:',
+              style.name,
+              'Raw style object:',
+              style,
+            );
+
             const styleName = normalizeTokenName(style.name, framework);
             const fontSize = style.fontSize ? `${style.fontSize}px` : '16px';
-            const fontFamily = style.fontName ? style.fontName.family : 'Inter';
-            const fontWeight = style.fontName
-              ? style.fontName.style
-              : 'Regular';
+
+            // Extract font family and weight from fontName object
+            let fontFamily = 'Inter';
+            let fontWeight = 'Regular';
+
+            if (style.fontName) {
+              console.log('FontName object:', style.fontName);
+              console.log('FontName.family:', style.fontName.family);
+              console.log('FontName.style:', style.fontName.style);
+              console.log(
+                'FontName.family type:',
+                typeof style.fontName.family,
+              );
+              console.log(
+                'FontName.family length:',
+                style.fontName.family
+                  ? style.fontName.family.length
+                  : 'undefined',
+              );
+
+              if (style.fontName.family && style.fontName.family.trim()) {
+                fontFamily = style.fontName.family.trim();
+                console.log('Setting fontFamily to:', fontFamily);
+              } else {
+                console.log(
+                  'FontName.family is empty or undefined, keeping default Inter',
+                );
+              }
+
+              if (style.fontName.style && style.fontName.style.trim()) {
+                fontWeight = style.fontName.style.trim();
+                console.log('Setting fontWeight to:', fontWeight);
+              } else {
+                console.log(
+                  'FontName.style is empty or undefined, keeping default Regular',
+                );
+              }
+            } else {
+              console.log('No fontName object found in style');
+            }
+
+            // Handle letterSpacing - it can be a number or an object
+            let letterSpacing = '0px';
+            if (style.letterSpacing !== undefined) {
+              console.log(
+                'LetterSpacing:',
+                style.letterSpacing,
+                'Type:',
+                typeof style.letterSpacing,
+              );
+              if (typeof style.letterSpacing === 'number') {
+                letterSpacing = `${style.letterSpacing}px`;
+              } else if (
+                style.letterSpacing &&
+                typeof style.letterSpacing === 'object'
+              ) {
+                // If it's an object, it might have a value property
+                letterSpacing = style.letterSpacing.value
+                  ? `${style.letterSpacing.value}px`
+                  : '0px';
+              }
+            }
+
+            // Handle lineHeight - it can be a number or an object
+            let lineHeight = 'normal';
+            if (style.lineHeight !== undefined) {
+              console.log(
+                'LineHeight:',
+                style.lineHeight,
+                'Type:',
+                typeof style.lineHeight,
+              );
+              if (typeof style.lineHeight === 'number') {
+                lineHeight = `${style.lineHeight}px`;
+              } else if (
+                style.lineHeight &&
+                typeof style.lineHeight === 'object'
+              ) {
+                // If it's an object, it should have value and unit properties
+                if (
+                  style.lineHeight.value !== undefined &&
+                  style.lineHeight.unit
+                ) {
+                  // Convert unit to lowercase for consistency
+                  const unit = style.lineHeight.unit.toLowerCase();
+                  lineHeight = `${style.lineHeight.value}${unit}`;
+                } else if (style.lineHeight.value !== undefined) {
+                  lineHeight = `${style.lineHeight.value}px`;
+                }
+              }
+            }
+
+            // Debug the final lineHeight value
+            console.log('Final lineHeight value:', lineHeight);
+
+            console.log('Processed values:', {
+              fontFamily,
+              fontWeight,
+              letterSpacing,
+              lineHeight,
+            });
+
+            console.log(
+              'Final value field will be:',
+              `${fontSize} ${fontFamily}`,
+            );
 
             processed[styleName] = {
               value: `${fontSize} ${fontFamily}`,
@@ -1644,13 +1753,17 @@
               fontSize: fontSize,
               fontFamily: fontFamily,
               fontWeight: fontWeight,
-              letterSpacing: style.letterSpacing
-                ? `${style.letterSpacing}px`
-                : '0px',
-              lineHeight: style.lineHeight
-                ? `${style.lineHeight.value}${style.lineHeight.unit}`
-                : 'normal',
-              ...getFrameworkSpecificTypography(style, framework),
+              letterSpacing: letterSpacing,
+              lineHeight: lineHeight,
+              ...getFrameworkSpecificTypography(
+                {
+                  ...style,
+                  fontFamily: fontFamily,
+                  fontWeight: fontWeight,
+                  fontSize: fontSize,
+                },
+                framework,
+              ),
             };
           });
 
